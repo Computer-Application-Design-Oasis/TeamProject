@@ -67,32 +67,35 @@ class MicroServiceHTTP(MicroService):
 
         return True
 
-class MicroServiceProcess(MicroService):
-    def __init__(self, containerName = "", processName = ""):
-        super().__init__(containerName)
-
-        self.processName = processName
-
-    def isAvailable(self):
-        result = os.system('docker exec {} pgrep {}'.format(self.containerName, self.processName))
-
-        if result == 0:
-            return True
-        
-        return False
-
 class MicroServicePrivate(MicroService):
-    def __init__(self, containerName="", port=80):
+    def __init__(self, containerName = "", ports = []):
         super().__init__(containerName)
-        self.port = port
+
+        self.ports = ports
 
     def isAvailable(self):
-        result = os.system('docker exec {} nc -z localhost {}'.format(self.containerName, self.port))
+        for port in self.ports:
+            result = os.system('docker exec {} nc -z localhost {}'.format(self.containerName, port))
 
-        if result == 0:
-            return True
+            if result != 0:
+                return False
 
-        return False
+        return True
+
+class MicroServiceProcess(MicroService):
+    def __init__(self, containerName = "", processNames = []):
+        super().__init__(containerName)
+
+        self.processNames = processNames
+
+    def isAvailable(self):
+        for processName in self.processNames:
+            result = os.system('docker exec {} pgrep {}'.format(self.containerName, processName))
+     
+            if result != 0:
+                return False
+        
+        return True
 
 rootURL = 'http://localhost/'
 
@@ -102,16 +105,16 @@ catalogue = MicroServiceHTTP("docker-compose_catalogue_1", [rootURL + "catalogue
 carts = MicroServiceHTTP("docker-compose_carts_1", [rootURL + "cart"])
 user = MicroServiceHTTP("docker-compose_user_1", [rootURL + "customers", rootURL + "cards", rootURL + "addresses"])
 
-orders = MicroServicePrivate("docker-compose_orders_1", 80)
-shipping = MicroServicePrivate("docker-compose_shipping_1", 80)
-payment = MicroServicePrivate("docker-compose_payment_1", 80)
-queueMaster = MicroServicePrivate("docker-compose_queue-master_1", 80)
+orders = MicroServicePrivate("docker-compose_orders_1", [80])
+shipping = MicroServicePrivate("docker-compose_shipping_1", [80])
+payment = MicroServicePrivate("docker-compose_payment_1", [80])
+queueMaster = MicroServicePrivate("docker-compose_queue-master_1", [80])
 
-rabbitmq = MicroServiceProcess("docker-compose_rabbitmq_1", "rabbitmq-server")
-catalogueDB = MicroServiceProcess("docker-compose_catalogue-db_1", "mysqld")
-cartsDB = MicroServiceProcess("docker-compose_carts-db_1", "mongod")
-userDB = MicroServiceProcess("docker-compose_user-db_1", "mongod")
-ordersDB = MicroServiceProcess("docker-compose_orders-db_1", "mongod")
+rabbitmq = MicroServiceProcess("docker-compose_rabbitmq_1", ["rabbitmq-server"])
+catalogueDB = MicroServiceProcess("docker-compose_catalogue-db_1", ["mysqld"])
+cartsDB = MicroServiceProcess("docker-compose_carts-db_1", ["mongod"])
+userDB = MicroServiceProcess("docker-compose_user-db_1", ["mongod"])
+ordersDB = MicroServiceProcess("docker-compose_orders-db_1", ["mongod"])
 
 autoHealTargets =[
     edgeRouter,
